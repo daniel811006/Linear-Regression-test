@@ -1,0 +1,277 @@
+<html><head><base href="https://websim.ai/linear-regression-simulator/"></head><body>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>線性回歸模擬器 - Foodpanda風格</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/regression/2.0.1/regression.min.js"></script>
+    <style>
+        :root {
+            --foodpanda-pink: #D70F64;
+            --foodpanda-light-pink: #FAE6EF;
+            --foodpanda-dark-gray: #333333;
+            --foodpanda-light-gray: #F7F7F7;
+        }
+        body {
+            font-family: "Microsoft JhengHei", "PMingLiU", sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--foodpanda-light-gray);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            color: var(--foodpanda-dark-gray);
+        }
+        h1 {
+            color: var(--foodpanda-pink);
+            text-align: center;
+            width: 100%;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+        }
+        .sidebar {
+            width: 250px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(215, 15, 100, 0.1);
+            margin-right: 20px;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .slider-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--foodpanda-pink);
+        }
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: var(--foodpanda-light-pink);
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+            border-radius: 5px;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--foodpanda-pink);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--foodpanda-pink);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        #chartContainer {
+            flex: 1;
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(215, 15, 100, 0.1);
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .metric-label {
+            font-weight: bold;
+        }
+        .metric-value {
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>線性回歸模擬器</h1>
+    <div class="container">
+        <div class="sidebar">
+            <div class="slider-group">
+                <label for="slopeSlider">斜率 (a): <span id="slopeValue">1.00</span></label>
+                <input type="range" id="slopeSlider" min="-5" max="5" value="1" step="0.01">
+            </div>
+            <div class="slider-group">
+                <label for="interceptSlider">截距 (b): <span id="interceptValue">-3.94</span></label>
+                <input type="range" id="interceptSlider" min="-10" max="10" value="-3.94" step="0.01">
+            </div>
+            <div class="slider-group">
+                <label for="pointsSlider">點的數量 (n): <span id="pointsValue">500</span></label>
+                <input type="range" id="pointsSlider" min="100" max="1000" value="500" step="10">
+            </div>
+            <div class="slider-group">
+                <label for="noiseSlider">噪音因子 (c): <span id="noiseValue">20</span></label>
+                <input type="range" id="noiseSlider" min="0" max="50" value="20" step="1">
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <span class="metric-label">均方誤差:</span>
+                    <span class="metric-value" id="mse">133.36</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">R平方得分:</span>
+                    <span class="metric-value" id="r2">0.03</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">估計斜率:</span>
+                    <span class="metric-value" id="estimatedSlope">0.73</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">估計截距:</span>
+                    <span class="metric-value" id="estimatedIntercept">-2.88</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">真實斜率:</span>
+                    <span class="metric-value" id="trueSlope">1.00</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">真實截距:</span>
+                    <span class="metric-value" id="trueIntercept">-3.94</span>
+                </div>
+            </div>
+        </div>
+        <div class="main-content">
+            <div id="chartContainer">
+                <canvas id="regressionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        const ctx = document.getElementById('regressionChart').getContext('2d');
+
+        function generateData(slope, intercept, n, noiseFactor) {
+            const x = Array.from({length: n}, () => Math.random() * 9 + 1);
+            const y = x.map(xi => slope * xi + intercept + (noiseFactor / 10) * (Math.random() * 2 - 1));
+            return {x, y};
+        }
+
+        function updateChart() {
+            const slope = parseFloat(document.getElementById('slopeSlider').value);
+            const intercept = parseFloat(document.getElementById('interceptSlider').value);
+            const n = parseInt(document.getElementById('pointsSlider').value);
+            const noiseFactor = parseFloat(document.getElementById('noiseSlider').value);
+
+            const {x, y} = generateData(slope, intercept, n, noiseFactor);
+            const data = x.map((xi, i) => [xi, y[i]]);
+
+            const result = regression.linear(data);
+            const linearRegression = x.map(xi => result.predict(xi)[1]);
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: '資料點',
+                        data: data.map(([x, y]) => ({x, y})),
+                        backgroundColor: 'rgba(215, 15, 100, 0.5)'
+                    }, {
+                        label: '線性回歸',
+                        data: x.map((xi, i) => ({x: xi, y: linearRegression[i]})),
+                        type: 'line',
+                        borderColor: '#D70F64',
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'X',
+                                color: '#D70F64'
+                            },
+                            ticks: {
+                                color: '#333333'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Y',
+                                color: '#D70F64'
+                            },
+                            ticks: {
+                                color: '#333333'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#333333'
+                            }
+                        }
+                    }
+                }
+            });
+
+            const mse = data.reduce((sum, [xi, yi], i) => sum + Math.pow(yi - linearRegression[i], 2), 0) / n;
+            const meanY = y.reduce((sum, yi) => sum + yi, 0) / n;
+            const ssTotal = y.reduce((sum, yi) => sum + Math.pow(yi - meanY, 2), 0);
+            const ssResidual = data.reduce((sum, [xi, yi], i) => sum + Math.pow(yi - linearRegression[i], 2), 0);
+            const r2 = 1 - (ssResidual / ssTotal);
+
+            document.getElementById('mse').textContent = mse.toFixed(2);
+            document.getElementById('r2').textContent = r2.toFixed(2);
+            document.getElementById('estimatedSlope').textContent = result.equation[0].toFixed(2);
+            document.getElementById('estimatedIntercept').textContent = result.equation[1].toFixed(2);
+            document.getElementById('trueSlope').textContent = slope.toFixed(2);
+            document.getElementById('trueIntercept').textContent = intercept.toFixed(2);
+        }
+
+        updateChart();
+
+        document.getElementById('slopeSlider').addEventListener('input', function() {
+            document.getElementById('slopeValue').textContent = this.value;
+            updateChart();
+        });
+
+        document.getElementById('interceptSlider').addEventListener('input', function() {
+            document.getElementById('interceptValue').textContent = this.value;
+            updateChart();
+        });
+
+        document.getElementById('pointsSlider').addEventListener('input', function() {
+            document.getElementById('pointsValue').textContent = this.value;
+            updateChart();
+        });
+
+        document.getElementById('noiseSlider').addEventListener('input', function() {
+            document.getElementById('noiseValue').textContent = this.value;
+            updateChart();
+        });
+    </script>
+</body>
+</html>
+</body></html>
